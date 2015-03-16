@@ -15,21 +15,29 @@
  */
 package org.apache.commons.rdf.impl.sparql;
 
+import com.github.commonsrdf.api.BlankNode;
+import com.github.commonsrdf.api.BlankNodeOrIRI;
+import com.github.commonsrdf.api.Graph;
+import com.github.commonsrdf.api.IRI;
+import com.github.commonsrdf.api.RDFTerm;
+import com.github.commonsrdf.api.Triple;
+import com.github.commonsrdf.simple.SimpleRDFTermFactory;
 import com.hp.hpl.jena.query.DatasetAccessor;
 import com.hp.hpl.jena.query.DatasetAccessorFactory;
+
 import java.io.IOException;
 import java.net.ServerSocket;
+
 import org.apache.jena.fuseki.EmbeddedFusekiServer;
+
 import com.hp.hpl.jena.rdf.model.Model;
 import com.hp.hpl.jena.rdf.model.ModelFactory;
+
 import java.io.InputStream;
 import java.util.Iterator;
-import org.apache.commons.rdf.BlankNode;
-import org.apache.commons.rdf.BlankNodeOrIri;
-import org.apache.commons.rdf.Graph;
-import org.apache.commons.rdf.Iri;
-import org.apache.commons.rdf.RdfTerm;
-import org.apache.commons.rdf.Triple;
+import java.util.Optional;
+import java.util.stream.Stream;
+
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -41,6 +49,8 @@ import org.junit.Test;
  */
 public class BNodeCircleTest {
 
+    private static SimpleRDFTermFactory factory = new SimpleRDFTermFactory();
+	
     final static int serverPort = findFreePort();
     static EmbeddedFusekiServer server;
 
@@ -74,32 +84,37 @@ public class BNodeCircleTest {
     @Test
     public void nullFilter() {
         final Graph graph = new SparqlGraph("http://localhost:" + serverPort + "/ds/query");
-        final Iterator<Triple> iter = graph.filter(null, null, null);
-        Assert.assertTrue(iter.hasNext());
-        final Triple triple1 = iter.next();
-        final BlankNodeOrIri subject = triple1.getSubject();
-        final RdfTerm object = triple1.getObject();
+        Stream<? extends Triple> triples = graph.getTriples();
+        Optional<? extends Triple> aTriple = triples.findAny();
+		Assert.assertTrue(aTriple.isPresent());
+        
+        final Triple triple1 = aTriple.get();
+        final BlankNodeOrIRI subject = triple1.getSubject();
+        final RDFTerm object = triple1.getObject();
         Assert.assertTrue(subject instanceof BlankNode);
         Assert.assertTrue(object instanceof BlankNode);
         Assert.assertNotEquals(subject, object);
-        Assert.assertTrue(iter.hasNext());
+        
+        //Assert.assertTrue(iter.hasNext());
     }
     
     @Test
     public void foafKnowsFilter() {
         final Graph graph = new SparqlGraph("http://localhost:" + serverPort + "/ds/query");
         
-        final Iri foafKnows = new Iri("http://xmlns.com/foaf/0.1/knows");
+        final IRI foafKnows = factory.createIRI("http://xmlns.com/foaf/0.1/knows");
 
-        final Iterator<Triple> iter = graph.filter(null, foafKnows, null);
-        Assert.assertTrue(iter.hasNext());
-        final Triple triple1 = iter.next();
-        final BlankNodeOrIri subject = triple1.getSubject();
-        final RdfTerm object = triple1.getObject();
+        Stream<? extends Triple> triples = graph.getTriples(null, foafKnows, null);
+        Optional<? extends Triple> aTriple = triples.findAny();
+        
+        Assert.assertTrue(aTriple.isPresent());
+        final Triple triple1 = aTriple.get();
+        final BlankNodeOrIRI subject = triple1.getSubject();
+        final RDFTerm object = triple1.getObject();
         Assert.assertTrue(subject instanceof BlankNode);
         Assert.assertTrue(object instanceof BlankNode);
         Assert.assertNotEquals(subject, object);
-        Assert.assertTrue(iter.hasNext());
+        //Assert.assertTrue(iter.hasNext());
     }
     
 
