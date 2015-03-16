@@ -15,39 +15,39 @@
  */
 package org.apache.commons.rdf.impl.sparql;
 
-import java.util.Collection;
 import java.util.Objects;
-import org.apache.commons.rdf.BlankNode;
-import org.apache.commons.rdf.BlankNodeOrIri;
-import org.apache.commons.rdf.ImmutableGraph;
-import org.apache.commons.rdf.Iri;
-import org.apache.commons.rdf.RdfTerm;
-import org.apache.commons.rdf.Triple;
-import org.apache.commons.rdf.impl.utils.TripleImpl;
-import org.apache.commons.rdf.impl.utils.simple.SimpleGraph;
+
+import com.github.commonsrdf.api.BlankNode;
+import com.github.commonsrdf.api.BlankNodeOrIRI;
+import com.github.commonsrdf.api.Graph;
+import com.github.commonsrdf.api.IRI;
+import com.github.commonsrdf.api.RDFTerm;
+import com.github.commonsrdf.simple.SimpleRDFTermFactory;
 
 /**
  *
  * @author developer
  */
-class SparqlBNode extends BlankNode {
+class SparqlBNode implements BlankNode {
     
-    final static Iri internalBNodeId = new Iri("urn:x-internalid:fdmpoihdfw");
+    private static SimpleRDFTermFactory factory = new SimpleRDFTermFactory();
+	
+    final static IRI internalBNodeId = factory.createIRI("urn:x-internalid:fdmpoihdfw");
     
-    final ImmutableGraph context;
+    final Graph context;
     private final int isoDistinguisher;
 
-    SparqlBNode(BlankNode node, Collection<Triple> context, int isoDistinguisher) {
+    SparqlBNode(Object rawNode, Graph context, int isoDistinguisher) {
         this.isoDistinguisher = isoDistinguisher;
-        final SimpleGraph contextBuider = new SimpleGraph();
-        for (Triple triple : context) {
-            BlankNodeOrIri subject = triple.getSubject();
-            RdfTerm object = triple.getObject();
-            contextBuider.add(new TripleImpl(subject.equals(node) ? internalBNodeId : subject, 
+        final Graph contextBuider = factory.createGraph();
+        context.getTriples().forEach(triple -> {
+            BlankNodeOrIRI subject = triple.getSubject();
+            RDFTerm object = triple.getObject();
+            contextBuider.add(factory.createTriple(subject.equals(rawNode) ? internalBNodeId : subject, 
                     triple.getPredicate(), 
-                    object.equals(node) ? internalBNodeId : object));
-        }
-        this.context = contextBuider.getImmutableGraph();
+                    object.equals(rawNode) ? internalBNodeId : object));
+        });
+        this.context = contextBuider; // no immutable graph
     }
 
     @Override
@@ -71,4 +71,15 @@ class SparqlBNode extends BlankNode {
         }
         return Objects.equals(this.context, other.context);
     }
+
+	@Override
+	public String ntriplesString() {
+		return "_:" + internalIdentifier();
+	}
+
+	@Override
+	public String internalIdentifier() {
+		// FIXME: not very unique..
+		return "b" + isoDistinguisher;
+	}
 }

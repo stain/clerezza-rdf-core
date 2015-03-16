@@ -21,6 +21,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
+
 import org.apache.http.HttpEntity;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
@@ -30,14 +36,15 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
-import javax.xml.parsers.*;
-import org.apache.commons.rdf.BlankNode;
-import org.apache.commons.rdf.Iri;
-import org.apache.commons.rdf.Language;
-import org.apache.commons.rdf.RdfTerm;
-import org.apache.commons.rdf.impl.utils.AbstractLiteral;
-import org.xml.sax.*;
-import org.xml.sax.helpers.*;
+import org.xml.sax.Attributes;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import org.xml.sax.XMLReader;
+import org.xml.sax.helpers.DefaultHandler;
+
+import com.github.commonsrdf.api.BlankNode;
+import com.github.commonsrdf.api.RDFTerm;
+import com.github.commonsrdf.simple.SimpleRDFTermFactory;
 
 /**
  *
@@ -45,13 +52,15 @@ import org.xml.sax.helpers.*;
  */
 public class SparqlClient {
 
+    private static SimpleRDFTermFactory factory = new SimpleRDFTermFactory();
+	
     final String endpoint;
 
     public SparqlClient(final String endpoint) {
         this.endpoint = endpoint;
     }
 
-    List<Map<String, RdfTerm>> queryResultSet(final String query) throws IOException {
+    List<Map<String, RDFTerm>> queryResultSet(final String query) throws IOException {
         CloseableHttpClient httpclient = HttpClients.createDefault();
         HttpPost httpPost = new HttpPost(endpoint);
         List<NameValuePair> nvps = new ArrayList<NameValuePair>();
@@ -91,22 +100,22 @@ public class SparqlClient {
     final public static class SparqlsResultsHandler extends DefaultHandler {
 
         private String currentBindingName;
-        private Map<String, RdfTerm> currentResult = null;
-        private final List<Map<String, RdfTerm>> results = new ArrayList<>();
+        private Map<String, RDFTerm> currentResult = null;
+        private final List<Map<String, RDFTerm>> results = new ArrayList<>();
         private boolean readingValue;
         private String lang; //the xml:lang attribute of a literal
         private String value;
         private Map<String, BlankNode> bNodeMap = new HashMap<>();
-        private static final Iri XSD_STRING = new Iri("http://www.w3.org/2001/XMLSchema#string");
+        //private static final IRI XSD_STRING = factory.createIRI("http://www.w3.org/2001/XMLSchema#string");
 
-        private RdfTerm getBNode(String value) {
+        private RDFTerm getBNode(String value) {
             if (!bNodeMap.containsKey(value)) {
-                bNodeMap.put(value, new BlankNode());
+                bNodeMap.put(value, factory.createBlankNode());
             }
             return bNodeMap.get(value);
         }
 
-        private List<Map<String, RdfTerm>> getResults() {
+        private List<Map<String, RDFTerm>> getResults() {
             return results;
         }
 
@@ -175,35 +184,22 @@ public class SparqlClient {
                 } else {
                     try {
                         BindingType b = BindingType.valueOf(localName);
-                        RdfTerm rdfTerm = null;
-                        final Language language = lang == null? null : new Language(lang);;
+                        RDFTerm rdfTerm = null;
+                        final Optional<String> language = Optional.ofNullable(lang);
                         switch (b) {
                             case uri:
-                                rdfTerm = new Iri(value);
+                                rdfTerm = factory.createIRI(value);
                                 break;
                             case bnode:
                                 rdfTerm = getBNode(value);
                                 break;
                             case literal:
-                                final String lf = value;
-                                rdfTerm = new AbstractLiteral() {
-
-                                    @Override
-                                    public String getLexicalForm() {
-                                        return lf;
-                                    }
-
-                                    @Override
-                                    public Iri getDataType() {
-                                        //TODO implement
-                                        return XSD_STRING;
-                                    }
-
-                                    @Override
-                                    public Language getLanguage() {
-                                        return language;
-                                    }
-                                };
+                               if (language.isPresent()) {
+                                	rdfTerm = factory.createLiteral(value, language.get());
+                               } else {
+                                	rdfTerm = factory.createLiteral(value);
+                                	// TODO: Implement dataType
+                                }
                                 break;
                         }
                         currentResult.put(currentBindingName, rdfTerm);
