@@ -25,10 +25,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Predicate;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import com.github.commonsrdf.api.BlankNode;
 import com.github.commonsrdf.api.BlankNodeOrIRI;
@@ -501,5 +505,92 @@ public class SparqlGraph implements Graph {
         public AlienBNodeException() {
         }
     }
+
+	@Override
+	public void close() throws Exception {
+		
+	}
+
+
+
+	@Override
+	public void add(Triple triple) {
+		throw new UnsupportedOperationException("SparqlGraph is read-only"); 
+		
+	}
+
+
+
+	@Override
+	public void add(BlankNodeOrIRI subject, IRI predicate, RDFTerm object) {
+		throw new UnsupportedOperationException("SparqlGraph is read-only");
+		
+	}
+
+
+
+	@Override
+	public boolean contains(Triple triple) {
+		return getTriples().anyMatch(t -> t.equals(triple));
+	}
+
+
+
+	@Override
+	public boolean contains(BlankNodeOrIRI subject, IRI predicate,
+			RDFTerm object) {
+		return getTriples(subject, predicate, object).findAny().isPresent();
+	}
+
+
+
+	@Override
+	public void remove(Triple triple) {
+		throw new UnsupportedOperationException("SparqlGraph is read-only");
+		
+	}
+
+
+
+	@Override
+	public void remove(BlankNodeOrIRI subject, IRI predicate, RDFTerm object) {
+		throw new UnsupportedOperationException("SparqlGraph is read-only");
+		
+	}
+
+
+
+	@Override
+	public void clear() {
+		throw new UnsupportedOperationException("SparqlGraph is read-only");
+		
+	}
+
+
+
+	@Override
+	public Stream<? extends Triple> getTriples() {
+		return getTriples(null, null, null);
+	}
+
+
+
+	@Override
+	public Stream<? extends Triple> getTriples(BlankNodeOrIRI subject,
+			IRI predicate, RDFTerm object) {
+		Iterator<Triple> it = performFilter(subject, predicate, object);
+		// FIXME: What are the correct characteristics?
+		int characteristics = Spliterator.DISTINCT | Spliterator.IMMUTABLE | Spliterator.NONNULL;
+		Spliterator<Triple> spliterator = Spliterators.spliteratorUnknownSize(it, characteristics);
+		// FIXME: Can it be parallell?
+		return StreamSupport.stream(spliterator, false);
+	}
+
+
+
+	@Override
+	public Stream<? extends Triple> getTriples(Predicate<Triple> filter) {
+		return getTriples().filter(filter);
+	}
 
 }
